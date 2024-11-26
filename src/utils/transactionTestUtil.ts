@@ -335,4 +335,47 @@ export const testTransactionMapping = async () => {
     return;
   }
   
-  const acco
+  const accounts = standardStore.getAccounts();
+  
+  if (!accounts || accounts.length === 0) {
+    mappingLogger.error('No accounts found for active standard', 'mapping');
+    return;
+  }
+  
+  mappingLogger.info('Starting test mapping', 'mapping', undefined, {
+    transactionIds: testTransactions.map(t => t.id)
+  });
+
+  // Add test transactions
+  const transactionStore = useTransactionStore.getState();
+  transactionStore.addTransactions(testTransactions);
+
+  // Map each transaction
+  for (const transaction of testTransactions) {
+    const suggestedMapping = suggestAccountMappingImproved(transaction, accounts);
+    
+    if (!suggestedMapping) {
+      mappingLogger.error('Failed to suggest mapping', 'mapping', transaction.id);
+      continue;
+    }
+
+    try {
+      await transactionStore.updateTransactionMapping(
+        transaction.id,
+        suggestedMapping[0].id,
+        suggestedMapping[1].id
+      );
+      
+      mappingLogger.info('Successfully mapped transaction', 'mapping', transaction.id, {
+        debitAccount: suggestedMapping[0],
+        creditAccount: suggestedMapping[1]
+      });
+    } catch (error) {
+      mappingLogger.error('Error updating transaction mapping', 'mapping', transaction.id, {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  mappingLogger.info('Test mapping complete', 'mapping');
+};
