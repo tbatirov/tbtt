@@ -1,0 +1,7 @@
+Transaction_ID,Date,Time,Description,Account_Number,Customer_Name,Transaction_Type,Amount
+T1001,23.11.2024,3:23:59,Travel booking payment,AC7105,Customer 1,Debit,836.54
+T1002,25.03.2024,6:45:25,Courier and shipping fee,AC8299,Customer 2,Withdrawal,773.12
+T1003,10.11.2024,23:38:07,Salary deposit,AC2150,Customer 3,Withdrawal,27.90
+T1004,17.06.2024,0:15:52,Electricity usage adjustment,AC3129,Customer 4,Credit,547.78
+T1005,22.11.2024,0:51:02,Doctor consultation fee,AC1214,Customer 5,Deposit,510.14
+T1006,07.11.2024,2:20:09,Courier and shipping fee,AC4174,Customer 6,Deposit,896.81

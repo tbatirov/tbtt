@@ -1,21 +1,22 @@
 import React from 'react';
 import { Transaction } from '../../types/ledger';
 import { AccountSelect } from './AccountSelect';
-import { AlertCircle, CheckCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useStandardStore } from '../../store/standardStore';
+import { useTransactionStore } from '../../store/transactionStore';
+import { ValidationSeverity } from '../../types/validation';
 
 interface TransactionMappingTableProps {
   transactions: Transaction[];
-  onAccountSelect: (transactionId: string, entryType: 'debit' | 'credit', accountId: string) => void;
-  errors: Record<string, string>;
+  onAccountSelect: (transactionId: string, type: 'debit' | 'credit', accountId: string) => void;
 }
 
 export const TransactionMappingTable: React.FC<TransactionMappingTableProps> = ({
   transactions,
-  onAccountSelect,
-  errors
+  onAccountSelect
 }) => {
   const { getActiveStandard, getAccounts } = useStandardStore();
+  const { getValidationResult } = useTransactionStore();
   const activeStandard = getActiveStandard();
   const accounts = activeStandard ? getAccounts(activeStandard.id!) : [];
 
@@ -25,16 +26,38 @@ export const TransactionMappingTable: React.FC<TransactionMappingTableProps> = (
     return account ? `${account.code} - ${account.name}` : '';
   };
 
-  const getStatusColor = (transaction: Transaction) => {
-    if (errors[transaction.id!]) return 'text-red-600';
-    if (transaction.entries.every(e => e.accountId)) return 'text-green-600';
-    return 'text-yellow-600';
-  };
+  const getStatusInfo = (transaction: Transaction) => {
+    const validationResult = getValidationResult(transaction.id!);
+    
+    if (!validationResult) {
+      return {
+        color: 'text-yellow-600',
+        icon: <AlertCircle className="h-4 w-4" />,
+        tooltip: 'Not validated'
+      };
+    }
 
-  const getStatusIcon = (transaction: Transaction) => {
-    if (errors[transaction.id!]) return <AlertCircle className="h-4 w-4" />;
-    if (transaction.entries.every(e => e.accountId)) return <CheckCircle className="h-4 w-4" />;
-    return <AlertCircle className="h-4 w-4" />;
+    if (!validationResult.isValid) {
+      return {
+        color: 'text-red-600',
+        icon: <AlertCircle className="h-4 w-4" />,
+        tooltip: validationResult.errors.map(e => e.message).join(', ')
+      };
+    }
+
+    if (validationResult.warnings.length > 0) {
+      return {
+        color: 'text-orange-500',
+        icon: <AlertTriangle className="h-4 w-4" />,
+        tooltip: validationResult.warnings.map(w => w.message).join(', ')
+      };
+    }
+
+    return {
+      color: 'text-green-600',
+      icon: <CheckCircle className="h-4 w-4" />,
+      tooltip: 'Valid transaction'
+    };
   };
 
   return (
@@ -73,7 +96,7 @@ export const TransactionMappingTable: React.FC<TransactionMappingTableProps> = (
             {transactions.map((transaction) => {
               const debitEntry = transaction.entries.find(e => e.type === 'debit');
               const creditEntry = transaction.entries.find(e => e.type === 'credit');
-              const error = errors[transaction.id!];
+              const status = getStatusInfo(transaction);
 
               return (
                 <tr key={transaction.id} className="hover:bg-gray-50">
@@ -96,7 +119,7 @@ export const TransactionMappingTable: React.FC<TransactionMappingTableProps> = (
                         onChange={(value) => onAccountSelect(transaction.id!, 'debit', value)}
                         entryType="debit"
                         amount={debitEntry?.amount || '0'}
-                        error={!!error}
+                        error={status.color === 'text-red-600'}
                       />
                       {debitEntry?.accountId && (
                         <span className="text-xs text-gray-500">
@@ -112,7 +135,7 @@ export const TransactionMappingTable: React.FC<TransactionMappingTableProps> = (
                         onChange={(value) => onAccountSelect(transaction.id!, 'credit', value)}
                         entryType="credit"
                         amount={creditEntry?.amount || '0'}
-                        error={!!error}
+                        error={status.color === 'text-red-600'}
                       />
                       {creditEntry?.accountId && (
                         <span className="text-xs text-gray-500">
@@ -122,14 +145,11 @@ export const TransactionMappingTable: React.FC<TransactionMappingTableProps> = (
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ${debitEntry?.amount}
+                    {debitEntry?.amount || creditEntry?.amount}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className={`flex items-center ${getStatusColor(transaction)}`}>
-                      {getStatusIcon(transaction)}
-                      <span className="ml-2 text-xs">
-                        {error || (transaction.entries.every(e => e.accountId) ? 'Mapped' : 'Pending')}
-                      </span>
+                    <div className={`flex items-center ${status.color}`} title={status.tooltip}>
+                      {status.icon}
                     </div>
                   </td>
                 </tr>

@@ -11,18 +11,20 @@ interface StandardStore {
   standards: AccountingStandard[];
   accounts: Account[];
   rules: StatementRule[];
+  activeStandardId: string | null;
   
   // Standard operations
   addStandard: (standard: Omit<AccountingStandard, 'id' | 'createdAt' | 'updatedAt'>) => AccountingStandard;
   updateStandard: (id: string, standard: Partial<AccountingStandard>) => void;
   deleteStandard: (id: string) => void;
   getActiveStandard: () => AccountingStandard | undefined;
+  setActiveStandard: (id: string) => void;
   
   // Account operations
   addAccounts: (accounts: Omit<Account, 'id' | 'createdAt' | 'updatedAt'>[]) => Account[];
   updateAccount: (id: string, account: Partial<Account>) => void;
   deleteAccount: (id: string) => void;
-  getAccounts: (standardId: string) => Account[];
+  getAccounts: (standardId?: string) => Account[];
   
   // Rule operations
   addRule: (rule: Omit<StatementRule, 'id' | 'createdAt' | 'updatedAt'>) => StatementRule;
@@ -42,12 +44,44 @@ interface StandardStore {
     standardId: string,
     accountType: AccountType
   ) => SignConvention | undefined;
+  reset: () => void;
 }
 
-export const useStandardStore = create<StandardStore>((set, get) => ({
-  standards: [],
-  accounts: [],
+// Default standard with sign conventions only
+const defaultStandard: AccountingStandard = {
+  id: 'default',
+  name: 'Default Standard',
+  description: 'Default accounting standard with basic sign conventions',
+  version: '1.0.0',
+  effectiveDate: new Date(),
+  isActive: true,
+  accountCodeFormat: {
+    pattern: '[0-9]+',
+    description: 'Numeric code',
+    example: '1000'
+  },
+  signConventions: {
+    'asset': { normalBalance: 'debit', increaseBy: 'debit' },
+    'liability': { normalBalance: 'credit', increaseBy: 'credit' },
+    'equity': { normalBalance: 'credit', increaseBy: 'credit' },
+    'revenue': { normalBalance: 'credit', increaseBy: 'credit' },
+    'expense': { normalBalance: 'debit', increaseBy: 'debit' },
+    'production': { normalBalance: 'debit', increaseBy: 'debit' },
+    'memo': { normalBalance: 'debit', increaseBy: 'debit' },
+    'off': { normalBalance: 'debit', increaseBy: 'debit' }
+  },
   rules: [],
+  createdAt: new Date(),
+  updatedAt: new Date()
+};
+
+export const useStandardStore = create<StandardStore>((set, get) => ({
+  standards: [defaultStandard],
+  accounts: [], // No default accounts - must be imported from chart of accounts
+  rules: [],
+  activeStandardId: null,
+
+  reset: () => set({ standards: [], accounts: [], rules: [], activeStandardId: null }),
 
   addStandard: (newStandard) => {
     const standard: AccountingStandard = {
@@ -55,10 +89,11 @@ export const useStandardStore = create<StandardStore>((set, get) => ({
       id: crypto.randomUUID(),
       createdAt: new Date(),
       updatedAt: new Date(),
+      isActive: false // Default to false, use setActiveStandard to activate
     };
 
     set((state) => ({
-      standards: [...state.standards, standard],
+      standards: [...state.standards, standard]
     }));
 
     return standard;
@@ -82,8 +117,19 @@ export const useStandardStore = create<StandardStore>((set, get) => ({
     }));
   },
 
+  setActiveStandard: (id) => {
+    set((state) => ({
+      activeStandardId: id,
+      standards: state.standards.map(s => ({
+        ...s,
+        isActive: s.id === id
+      }))
+    }));
+  },
+
   getActiveStandard: () => {
-    return get().standards.find((standard) => standard.isActive);
+    const state = get();
+    return state.standards.find(s => s.id === state.activeStandardId);
   },
 
   addAccounts: (newAccounts) => {
@@ -117,8 +163,11 @@ export const useStandardStore = create<StandardStore>((set, get) => ({
     }));
   },
 
-  getAccounts: (standardId) => {
-    return get().accounts.filter((account) => account.standardId === standardId);
+  getAccounts: (standardId?: string) => {
+    const state = get();
+    const targetStandardId = standardId || state.activeStandardId;
+    if (!targetStandardId) return [];
+    return state.accounts.filter((account) => account.standardId === targetStandardId);
   },
 
   addRule: (newRule) => {
@@ -152,7 +201,7 @@ export const useStandardStore = create<StandardStore>((set, get) => ({
     }));
   },
 
-  getRules: (standardId) => {
+  getRules: (standardId: string) => {
     return get().rules.filter((rule) => rule.standardId === standardId);
   },
 

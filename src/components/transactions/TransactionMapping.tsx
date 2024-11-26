@@ -3,7 +3,7 @@ import { useTransactionStore } from '../../store/transactionStore';
 import { useStandardStore } from '../../store/standardStore';
 import { TransactionMappingStatus } from './TransactionMappingStatus';
 import { TransactionMappingTable } from './TransactionMappingTable';
-import { transactionMapper } from '../../services/mapping/transactionMapper';
+import { aiTransactionMapper } from '../../services/mapping/aiTransactionMapper';
 import { configService } from '../../services/mapping/config';
 
 interface TransactionMappingProps {
@@ -49,7 +49,7 @@ export const TransactionMapping: React.FC<TransactionMappingProps> = ({
     setMappingProgress(0);
     
     try {
-      transactionMapper.initialize(accounts);
+      aiTransactionMapper.initialize(accounts);
 
       const batchSize = 3;
       const totalBatches = Math.ceil(companyTransactions.length / batchSize);
@@ -59,10 +59,7 @@ export const TransactionMapping: React.FC<TransactionMappingProps> = ({
         
         const results = await Promise.allSettled(
           batch.map(async transaction => {
-            const result = await transactionMapper.mapTransaction(transaction);
-            if (result.error) {
-              throw new Error(result.error);
-            }
+            const result = await aiTransactionMapper.suggestMapping(transaction);
             return result;
           })
         );

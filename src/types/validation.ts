@@ -24,7 +24,94 @@ export const ledgerEntrySchema = z.object({
 export type AccountImportData = z.infer<typeof accountImportSchema>;
 export type LedgerEntryData = z.infer<typeof ledgerEntrySchema>;
 
+export enum ValidationLevel {
+  Structural = 'structural',
+  Accounting = 'accounting',
+  Business = 'business',
+  Historical = 'historical'
+}
+
+export enum ValidationSeverity {
+  Error = 'error',
+  Warning = 'warning',
+  Info = 'info'
+}
+
+export interface ValidationError {
+  code: string;
+  message: string;
+  level: ValidationLevel;
+  severity: ValidationSeverity;
+  affectedFields: string[];
+  suggestedFixes?: ValidationFix[];
+}
+
+export interface ValidationFix {
+  description: string;
+  action: () => Promise<void>;
+}
+
+export interface ValidationOverride {
+  ruleId: string;
+  reason: string;
+  approvedBy?: string;
+  expiresAt?: Date;
+}
+
+export interface ValidationState {
+  overrides: ValidationOverride[];
+  history: ValidationResult[];
+}
+
 export interface ValidationResult {
   isValid: boolean;
-  errors: string[];
+  errors: ValidationError[];
+  warnings: ValidationError[];
+  overrides?: ValidationOverride[];
+  level: ValidationLevel;
+}
+
+export interface ValidationContext {
+  transaction: Transaction;
+  accounts: {
+    debit: Account;
+    credit: Account;
+  };
+  metadata?: Record<string, unknown>;
+  state: ValidationState;
+}
+
+// Accounting-specific types
+export interface AccountingPeriod {
+  startDate: Date;
+  endDate: Date;
+  isClosed: boolean;
+  closingDate?: Date;
+}
+
+export interface AccountBalance {
+  current: number;
+  pending: number;
+  asOf: Date;
+}
+
+export interface SignConventionRule {
+  accountType: string;
+  normalBalance: 'debit' | 'credit';
+  increasesWith: 'debit' | 'credit';
+}
+
+export interface AccountTypeCompatibility {
+  sourceType: string;
+  targetType: string;
+  allowedOperations: ('debit' | 'credit')[];
+}
+
+// Extend ValidationContext to include accounting-specific data
+export interface AccountingValidationContext extends ValidationContext {
+  balances?: {
+    debit?: AccountBalance;
+    credit?: AccountBalance;
+  };
+  period?: AccountingPeriod;
 }
